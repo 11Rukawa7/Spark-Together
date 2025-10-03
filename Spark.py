@@ -63,6 +63,13 @@ st.markdown("""
         margin: 1rem 0;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
+    .settings-box {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -76,6 +83,9 @@ if 'spark_data' not in st.session_state:
         'longest_streak': 0,
         'last_check_date': date.today()
     }
+
+if 'names_set' not in st.session_state:
+    st.session_state.names_set = False
 
 # Check if it's a new day and reset daily clicks
 if st.session_state.spark_data['last_check_date'] != date.today():
@@ -116,20 +126,60 @@ def handle_user_click(user_key):
     st.session_state.spark_data = data
 
 def reset_spark():
-    """Reset spark but keep longest streak"""
+    """Reset spark but keep longest streak and names"""
     longest = st.session_state.spark_data['longest_streak']
+    user1_name = st.session_state.spark_data['user1']['name']
+    user2_name = st.session_state.spark_data['user2']['name']
+    
     st.session_state.spark_data = {
-        'user1': {'name': 'Alice', 'clicked_today': False, 'last_click': None},
-        'user2': {'name': 'Bob', 'clicked_today': False, 'last_click': None},
+        'user1': {'name': user1_name, 'clicked_today': False, 'last_click': None},
+        'user2': {'name': user2_name, 'clicked_today': False, 'last_click': None},
         'spark_count': 0,
         'current_streak': 0,
         'longest_streak': longest,
         'last_check_date': date.today()
     }
 
+def update_names(name1, name2):
+    """Update user names"""
+    st.session_state.spark_data['user1']['name'] = name1
+    st.session_state.spark_data['user2']['name'] = name2
+    st.session_state.names_set = True
+
 # Main UI
 st.markdown("<h1>🔥 Chat Spark</h1>", unsafe_allow_html=True)
 st.markdown("<p class='subtitle'>Keep your connection alive! Both users click daily to grow the spark</p>", unsafe_allow_html=True)
+
+# Name customization section
+with st.expander("⚙️ Customize Names", expanded=not st.session_state.names_set):
+    st.markdown("<div class='settings-box'>", unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        user1_name = st.text_input(
+            "User 1 Name", 
+            value=st.session_state.spark_data['user1']['name'],
+            placeholder="Enter first name",
+            key="name1_input"
+        )
+    
+    with col2:
+        user2_name = st.text_input(
+            "User 2 Name", 
+            value=st.session_state.spark_data['user2']['name'],
+            placeholder="Enter second name",
+            key="name2_input"
+        )
+    
+    if st.button("💾 Save Names", use_container_width=True):
+        if user1_name.strip() and user2_name.strip():
+            update_names(user1_name.strip(), user2_name.strip())
+            st.success(f"Names updated to {user1_name} and {user2_name}! 🎉")
+            st.rerun()
+        else:
+            st.error("Please enter both names!")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # Spark display
 data = st.session_state.spark_data
@@ -152,7 +202,7 @@ st.markdown("</div>", unsafe_allow_html=True)
 # Success message
 if data['user1']['clicked_today'] and data['user2']['clicked_today']:
     st.markdown(
-        "<div class='success-message'>🎉 Both users clicked today! Spark increased! 🔥</div>",
+        f"<div class='success-message'>🎉 {data['user1']['name']} and {data['user2']['name']} both clicked today! Spark increased! 🔥</div>",
         unsafe_allow_html=True
     )
 
