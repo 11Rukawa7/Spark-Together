@@ -1,5 +1,7 @@
 import streamlit as st
 from datetime import datetime, date
+import json
+import os
 
 # Page configuration
 st.set_page_config(
@@ -73,9 +75,38 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state
-if 'spark_data' not in st.session_state:
-    st.session_state.spark_data = {
+# File path for persistent storage
+DATA_FILE = "spark_data.json"
+
+def load_data():
+    """Load data from JSON file"""
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, 'r') as f:
+                data = json.load(f)
+                # Convert date string back to date object
+                data['last_check_date'] = datetime.strptime(data['last_check_date'], '%Y-%m-%d').date()
+                return data
+        except Exception as e:
+            st.error(f"Error loading data: {e}")
+            return get_default_data()
+    return get_default_data()
+
+def save_data(data):
+    """Save data to JSON file"""
+    try:
+        # Convert date object to string for JSON serialization
+        data_to_save = data.copy()
+        data_to_save['last_check_date'] = data['last_check_date'].strftime('%Y-%m-%d')
+        
+        with open(DATA_FILE, 'w') as f:
+            json.dump(data_to_save, f, indent=2)
+    except Exception as e:
+        st.error(f"Error saving data: {e}")
+
+def get_default_data():
+    """Return default data structure"""
+    return {
         'user1': {'name': 'Alice', 'clicked_today': False, 'last_click': None},
         'user2': {'name': 'Bob', 'clicked_today': False, 'last_click': None},
         'spark_count': 0,
@@ -83,6 +114,10 @@ if 'spark_data' not in st.session_state:
         'longest_streak': 0,
         'last_check_date': date.today()
     }
+
+# Initialize session state with persistent data
+if 'spark_data' not in st.session_state:
+    st.session_state.spark_data = load_data()
 
 if 'names_set' not in st.session_state:
     st.session_state.names_set = False
@@ -92,6 +127,7 @@ if st.session_state.spark_data['last_check_date'] != date.today():
     st.session_state.spark_data['user1']['clicked_today'] = False
     st.session_state.spark_data['user2']['clicked_today'] = False
     st.session_state.spark_data['last_check_date'] = date.today()
+    save_data(st.session_state.spark_data)
 
 def get_spark_emoji(streak):
     """Return appropriate flame emoji based on streak"""
@@ -115,7 +151,7 @@ def handle_user_click(user_key):
     
     # Mark user as clicked
     data[user_key]['clicked_today'] = True
-    data[user_key]['last_click'] = datetime.now()
+    data[user_key]['last_click'] = datetime.now().isoformat()
     
     # Check if both users clicked today
     if data['user1']['clicked_today'] and data['user2']['clicked_today']:
@@ -124,6 +160,7 @@ def handle_user_click(user_key):
         data['longest_streak'] = max(data['longest_streak'], data['current_streak'])
     
     st.session_state.spark_data = data
+    save_data(data)
 
 def reset_spark():
     """Reset spark but keep longest streak and names"""
@@ -139,12 +176,14 @@ def reset_spark():
         'longest_streak': longest,
         'last_check_date': date.today()
     }
+    save_data(st.session_state.spark_data)
 
 def update_names(name1, name2):
     """Update user names"""
     st.session_state.spark_data['user1']['name'] = name1
     st.session_state.spark_data['user2']['name'] = name2
     st.session_state.names_set = True
+    save_data(st.session_state.spark_data)
 
 # Main UI
 st.markdown("<h1>🔥 Chat Spark</h1>", unsafe_allow_html=True)
@@ -234,6 +273,13 @@ if st.button("🔄 Reset Spark (Keep Longest Streak)", use_container_width=True)
 st.markdown("<br>", unsafe_allow_html=True)
 st.info("💡 **How it works:** Both users must click once daily to increase the spark count! The streak grows when both users click on the same day.")
 
+# Data persistence info
+st.markdown("<br>", unsafe_allow_html=True)
+with st.expander("📊 Data Storage Info"):
+    st.write(f"✅ **Data is automatically saved to:** `{DATA_FILE}`")
+    st.write("🔄 **Your progress persists across page refreshes and restarts!**")
+    st.write(f"📅 **Last check date:** {data['last_check_date']}")
+
 # Footer
-st.markdown("<br><br>", unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #9ca3af; font-size: 0.9rem;'>Made with ❤️ using Streamlit</p>", unsafe_allow_html=True)
